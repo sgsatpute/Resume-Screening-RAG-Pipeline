@@ -26,6 +26,32 @@ When the user asks about a specific applicant ID, the system performs an exact l
 
 ![Applicant ID response example](https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline/assets/46376260/94081148-b99f-40d9-b665-b5cbb7e15123)
 
+## Local Run Verification
+
+The project was run locally with the repository virtual environment and Streamlit:
+
+```powershell
+cd D:\Saurav\project\Resume-Screening-RAG-Pipeline-main\Resume-Screening-RAG-Pipeline-main
+..\.venv\Scripts\python.exe -m streamlit run demo/interface.py --server.port 8501 --server.headless true --server.fileWatcherType none
+```
+
+Verified locally:
+
+- Streamlit served the app at `http://localhost:8501`.
+- The app loaded the default `data/main-data/synthetic-resumes.csv` dataset.
+- The FAISS vectorstore and Hugging Face embedding model initialized.
+- Ollama had `llama3:latest` available.
+- The UI rendered the sidebar, RAG mode selector, resume upload control, title, and chat input.
+- A sample query, `Find Python developers with machine learning experience`, completed retrieval and generated a ranked candidate answer.
+
+Startup screen from the local run:
+
+![Local Streamlit startup screen](docs/screenshots/streamlit-local-run.png)
+
+Completed sample query from the local run:
+
+![Local Streamlit query result](docs/screenshots/streamlit-query-result.png)
+
 ## What The App Does
 
 The assistant supports three main query paths:
