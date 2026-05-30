@@ -74,6 +74,64 @@ At a lower level, resumes are embedded into a FAISS vectorstore. For job descrip
 
 ![RAG pipeline](https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline/assets/46376260/4259837e-9e2c-40f8-8276-e9469667b98b)
 
+### Runtime Architecture
+
+```mermaid
+flowchart TD
+    User["Hiring manager"] --> UI["Streamlit UI: demo/interface.py"]
+    UI --> State["st.session_state"]
+    State --> Embeddings["HuggingFaceEmbeddings"]
+    State --> Retriever["SelfQueryRetriever"]
+    State --> LLM["ChatBot / Ollama llama3"]
+    Retriever --> QueryType["detect_query_type"]
+    QueryType --> IDPath["Applicant ID lookup"]
+    QueryType --> JDPath["Job description retrieval"]
+    QueryType --> GeneralPath["General assistant answer"]
+    JDPath --> FusionChoice{"RAG mode"}
+    FusionChoice --> Generic["Generic RAG: original query"]
+    FusionChoice --> Fusion["RAG Fusion: generated sub-queries"]
+    Fusion --> LLM
+    Generic --> FAISS["FAISS vectorstore"]
+    Fusion --> FAISS
+    FAISS --> FullResume["Full resume lookup from dataframe"]
+    FullResume --> Score["compute_score + extract_skills"]
+    Score --> Prompt["Prompt construction"]
+    IDPath --> Prompt
+    GeneralPath --> Prompt
+    Prompt --> LLM
+    LLM --> Stream["Streamed response"]
+    Stream --> UI
+```
+
+### Data And Indexing Architecture
+
+```mermaid
+flowchart TD
+    CSV["Resume CSV with ID and Resume columns"] --> DF["pandas DataFrame"]
+    DF --> Loader["DataFrameLoader"]
+    Loader --> Splitter["RecursiveCharacterTextSplitter"]
+    Splitter --> Chunks["Resume chunks with metadata"]
+    Chunks --> Embed["Sentence-transformer embeddings"]
+    Embed --> Store["FAISS vectorstore"]
+    Store --> Disk["vectorstore/index.faiss + index.pkl"]
+    Store --> Runtime["Runtime semantic search"]
+```
+
+### RAG Fusion Architecture
+
+```mermaid
+flowchart TD
+    Question["Original job description"] --> SubQ["ChatBot.generate_subquestions"]
+    Question --> QueryList["Query list"]
+    SubQ --> QueryList
+    QueryList --> Search1["FAISS search per query"]
+    Search1 --> RankedIDs["Ranked candidate ID lists"]
+    RankedIDs --> RRF["Reciprocal rank fusion"]
+    RRF --> TopIDs["Top candidate IDs"]
+    TopIDs --> ResumeMap["Map IDs to full resumes"]
+    ResumeMap --> LLMContext["LLM context"]
+```
+
 ## How It Works End To End
 
 1. The user submits a message in the Streamlit chat UI.
@@ -147,6 +205,270 @@ The app uses different prompts depending on the query type:
 - General question: answer as a recruitment assistant using recent chat history.
 
 Responses are streamed through Streamlit with `st.write_stream()`, so the answer appears progressively.
+
+## Runtime Data Structures
+
+### Session state
+
+`demo/interface.py` keeps long-lived objects in `st.session_state` so Streamlit reruns do not recreate expensive resources on every interaction.
+
+| Key | Created in | Purpose |
+| --- | --- | --- |
+| `chat_history` | `interface.py` | Stores `HumanMessage`, `AIMessage`, and verbosity render tuples. |
+| `resume_list` | `interface.py` | Stores the latest retrieved resume context list. |
+| `embedding_model` | `interface.py` | Reuses the Hugging Face embedding model. |
+| `df` | `interface.py` | Active resume dataframe, either default synthetic data or uploaded CSV. |
+| `rag_pipeline` | `interface.py` | Active `SelfQueryRetriever` connected to the active vectorstore and dataframe. |
+| `llm` | `interface.py` | Cached `ChatBot` wrapper around Ollama/Llama3. |
+| `rag_selection` | Streamlit selectbox | Current mode: `Generic RAG` or `RAG Fusion`. |
+
+### Retriever metadata
+
+`SelfQueryRetriever` updates a `meta_data` dictionary on every retrieval. The verbosity UI reads this object.
+
+```python
+{
+    "rag_mode": "",
+    "query_type": "no_retrieve",
+    "extracted_input": "",
+    "subquestion_list": [],
+    "retrieved_docs_with_scores": [],
+}
+```
+
+Meaning:
+
+- `rag_mode`: selected Streamlit RAG mode.
+- `query_type`: one of `retrieve_applicant_jd`, `retrieve_applicant_id`, or `no_retrieve`.
+- `extracted_input`: parsed IDs or job description payload.
+- `subquestion_list`: original query plus generated sub-queries when RAG Fusion is used.
+- `retrieved_docs_with_scores`: fused candidate ID scores after retrieval.
+
+### Retrieved document format
+
+For job description retrieval, each selected resume is formatted like this before it is passed to the LLM:
+
+```text
+Applicant ID: <id>
+Match Score: <score>%
+Skills: <comma-separated skills>
+
+<full resume text>
+```
+
+For applicant ID lookup, the format is simpler:
+
+```text
+Applicant ID <id>
+<full resume text>
+```
+
+## Function-By-Function Walkthrough
+
+### `demo/interface.py`
+
+This is the Streamlit entry point and runtime coordinator. It does not define custom functions, but its top-level blocks act as the application lifecycle.
+
+| Block | What it does | Why it matters |
+| --- | --- | --- |
+| Imports | Loads Streamlit, Pandas, LangChain message types, FAISS, embeddings, `ChatBot`, `ingest`, and `SelfQueryRetriever`. | Connects the UI, retrieval, vectorstore, and model layers. |
+| Config constants | Defines `DATA_PATH`, `FAISS_PATH`, and `EMBEDDING_MODEL`. | These control the default resume CSV, default local FAISS folder, and embedding model. |
+| Page setup | Calls `st.set_page_config()`, `st.title()`, and `st.caption()`. | Gives the app its visible title and local-Llama3 positioning. |
+| `chat_history` init | Creates an empty chat list when missing. | Preserves conversation turns across Streamlit reruns. |
+| `resume_list` init | Creates an empty list for latest retrieved resumes. | Lets the app keep retrieval context available after a query. |
+| `embedding_model` init | Builds `HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")`. | Embeddings are expensive, so the app caches them in session state. |
+| `df` init | Reads `data/main-data/synthetic-resumes.csv`. | Provides the default resume corpus. |
+| `rag_pipeline` init | Loads FAISS from `vectorstore`; if loading fails, rebuilds with `ingest()`. | Makes the app resilient when the index is missing. |
+| `llm` init | Creates one `ChatBot()` instance. | Avoids recreating the Ollama wrapper on each UI rerun. |
+| Sidebar | Provides RAG mode selection, CSV upload, clear conversation, examples, and about text. | Gives non-code controls for changing retrieval behavior and dataset. |
+| Upload branch | Validates uploaded CSV columns, builds a new FAISS index in memory, and swaps the active retriever/dataframe. | Lets users test their own resumes without editing files. |
+| Chat history rendering | Replays `HumanMessage`, `AIMessage`, and verbosity tuples. | Keeps the chat transcript visible after reruns. |
+| Chat input branch | Runs retrieval, shows retrieved candidates, streams the LLM response, renders verbosity, and appends history. | This is the main request-response loop. |
+
+### `demo/retriever.py`
+
+This file contains query routing, scoring, and retrieval.
+
+#### Constants
+
+| Name | Purpose |
+| --- | --- |
+| `RAG_K_THRESHOLD = 5` | Number of candidate chunks retrieved per query before fusion. |
+| `SKILLS` | Known skill list used for skill-triggered retrieval and skill extraction. |
+| `JD_KEYWORDS` | Hiring/job-description keywords used to detect retrieval-worthy user prompts. |
+
+#### `detect_query_type(question: str)`
+
+Classifies the user message.
+
+Return values:
+
+| Return type | Parsed payload | When it happens |
+| --- | --- | --- |
+| `retrieve_applicant_id` | `{"id_list": [...]}` | The message contains one or more 3+ digit numbers. |
+| `retrieve_applicant_jd` | `{"job_description": question}` | The message contains hiring keywords or known skills. |
+| `no_retrieve` | `{}` | No resume retrieval signal is detected. |
+
+This function is intentionally lightweight and rule-based. It avoids spending LLM calls just to decide whether retrieval is needed.
+
+#### `compute_score(query: str, resume_text: str) -> float`
+
+Computes a readable match percentage for presentation.
+
+Steps:
+
+1. Lowercase the query and resume.
+2. Build unigram sets from whitespace-split words.
+3. Build bigram sets from adjacent token pairs.
+4. Count unigram overlap.
+5. Count bigram overlap and weight each bigram match as `2`.
+6. Normalize by total query terms.
+7. Add a skill-density bonus up to `2` points.
+8. Round the final score to two decimals.
+
+This score is separate from the FAISS vector similarity score. FAISS finds candidates semantically; `compute_score()` makes the final list easier to read.
+
+#### `extract_skills(text: str) -> list`
+
+Lowercases resume text and returns every skill from `SKILLS` that appears in the resume.
+
+This is used for:
+
+- the skill-density score bonus
+- the `Skills:` line shown in retrieved candidate context
+
+#### `class RAGRetriever`
+
+Base retriever that knows how to search FAISS and map retrieved IDs back to full resumes.
+
+| Method | Working |
+| --- | --- |
+| `__init__(vectorstore_db, df)` | Stores the active FAISS vectorstore and active dataframe. |
+| `__retrieve_docs_id__(question, k=50)` | Runs `similarity_search_with_score()` and returns `{applicant_id: score}`. |
+| `__reciprocal_rank_fusion__(document_rank_list, k=50)` | Merges several ranked result lists by adding `1 / (rank + k)` for each candidate. |
+| `retrieve_id_and_rerank(subquestion_list)` | Retrieves candidate IDs for every query and fuses the ranked lists. |
+| `retrieve_documents_with_id(doc_id_with_score, threshold=5, query="")` | Selects top IDs, maps them to full resumes, computes scores/skills, formats context strings, and sorts by match score. |
+
+#### `class SelfQueryRetriever(RAGRetriever)`
+
+The application-level retriever used by Streamlit.
+
+| Method | Working |
+| --- | --- |
+| `__init__(vectorstore_db, df)` | Calls the base retriever and initializes `meta_data`. |
+| `retrieve_docs(question, llm, rag_mode)` | Classifies the query, runs the correct retrieval branch, stores metadata, and returns document context. |
+
+`retrieve_docs()` has three branches:
+
+1. `retrieve_applicant_id`
+   - Loops through parsed IDs.
+   - Filters `df` where `ID` matches.
+   - Returns exact resume text.
+   - Silently skips missing IDs.
+
+2. `retrieve_applicant_jd`
+   - Starts with the original user question.
+   - If mode is `RAG Fusion`, asks `llm.generate_subquestions()` for more focused queries.
+   - Retrieves and fuses candidate IDs.
+   - Converts IDs to full scored resume context.
+
+3. `no_retrieve`
+   - Returns an empty list.
+   - The LLM answers from general recruitment knowledge and chat history.
+
+### `demo/llm_agent.py`
+
+This file wraps the local Llama3 model through Ollama.
+
+#### `class ChatBot`
+
+| Method | Working |
+| --- | --- |
+| `__init__()` | Creates `Ollama(model="llama3")`. |
+| `generate_subquestions(question)` | Prompts Llama3 to produce 3-4 focused search queries, strips numbering/bullets, removes short stray lines, and returns up to four queries. |
+| `generate_message_stream(question, docs, history, prompt_cls)` | Builds the final prompt for the current query type and returns `self.llm.stream(prompt)`. |
+
+`generate_message_stream()` has three prompt modes:
+
+1. `retrieve_applicant_jd`
+   - Provides ranked retrieved resumes.
+   - Instructs the LLM not to reorder candidates.
+   - Requires top 3 candidates, best candidate, score, and reasons.
+
+2. `retrieve_applicant_id`
+   - Provides one or more exact candidate resumes.
+   - Requests strengths, weaknesses, and an overall recommendation.
+
+3. `no_retrieve`
+   - Converts the latest chat history into readable text.
+   - Asks the LLM to answer as a recruitment assistant.
+
+### `demo/ingest_data.py`
+
+This file builds a FAISS vectorstore from a dataframe.
+
+#### `ingest(df, content_column, embedding_model)`
+
+Steps:
+
+1. Wrap the dataframe with `DataFrameLoader`.
+2. Split documents with `RecursiveCharacterTextSplitter`.
+3. Use `chunk_size=1000` and `chunk_overlap=150`.
+4. Embed chunks with the provided embedding model.
+5. Build a FAISS vectorstore with cosine distance.
+6. Return the vectorstore.
+
+The app uses this function when:
+
+- the default `vectorstore` folder is missing or cannot be loaded
+- a user uploads a custom resume CSV
+
+### `demo/chatbot_verbosity.py`
+
+This file renders the debug/trace panel under each assistant response.
+
+#### `render(document_list, meta_data, time_elapsed)`
+
+Working:
+
+1. Maps the query type to a readable status message.
+2. Opens a Streamlit expander with elapsed time.
+3. For job description retrieval:
+   - shows selected RAG mode
+   - shows top retrieved resumes in popovers
+   - lists sub-queries
+   - lists top re-ranking scores
+4. For applicant ID retrieval:
+   - shows matched resumes in popovers
+   - shows extracted IDs
+
+This is useful for debugging retrieval quality because it exposes what the model actually received.
+
+### `demo/interactive/convert_pdf.py`
+
+Utility script for converting PDF resumes into a CSV dataset.
+
+Working:
+
+1. Finds PDF files under `data/supplementary-data/pdf-resumes/`.
+2. Opens each file with `PdfReader`.
+3. Extracts text from every page.
+4. Writes rows to `data/supplementary-data/pdf-resumes.csv`.
+5. Assigns sequential numeric IDs starting at `0`.
+
+### `demo/interactive/ingest_data.py`
+
+Utility script for building a FAISS index from environment variables.
+
+It reads:
+
+- `DATA_PATH`
+- `EMBEDDING_MODEL`
+- `FAISS_PATH`
+
+Then it loads the CSV, splits the `Resume` column, builds embeddings, saves FAISS locally, and prints elapsed time.
+
+Note: this older utility uses `chunk_size=1024` and `chunk_overlap=500`, while the current app ingestion path uses `chunk_size=1000` and `chunk_overlap=150`.
 
 ## Project Structure
 
