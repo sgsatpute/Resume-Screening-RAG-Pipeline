@@ -40,8 +40,16 @@ JD_KEYWORDS = [
 def detect_query_type(question: str):
     q = question.lower()
 
-    # ID lookup: 3+ digit numbers
-    ids = re.findall(r'\b\d{3,}\b', question)
+    # ID lookup: support uploaded single-resume IDs like "applicant 1"
+    # without treating "top 3 candidates" as candidate ID 3.
+    explicit_ids = []
+    for pattern in [
+        r"\b(?:applicant|candidate|resume)\s*(?:id\s*)?#?\s*(\d+)\b",
+        r"\bid\s*#?\s*(\d+)\b",
+    ]:
+        explicit_ids.extend(re.findall(pattern, q))
+
+    ids = list(dict.fromkeys(explicit_ids)) if explicit_ids else re.findall(r"\b\d{3,}\b", question)
     if ids:
         return "retrieve_applicant_id", {"id_list": ids}
 

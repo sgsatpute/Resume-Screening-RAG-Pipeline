@@ -15,7 +15,7 @@ class ChatBot:
 
     def _default_model(self, provider: str) -> str:
         if provider == "gemini":
-            return os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            return os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
         return os.getenv("OLLAMA_MODEL", "llama3")
 
     def _build_llm(self):
@@ -110,6 +110,7 @@ Job Description:
         prompt_cls: str,
     ):
         context = "\n\n".join(docs)
+        candidate_count = len(docs)
 
         if prompt_cls == "retrieve_applicant_jd":
             prompt = f"""You are an expert ATS (Applicant Tracking System) helping a hiring manager screen resumes.
@@ -122,16 +123,15 @@ Hiring Manager's Request:
 
 Instructions:
 - Candidates are pre-sorted by Match Score (highest first). DO NOT reorder them.
-- Show the top 3 candidates with their Applicant ID and score.
+- Show only the {candidate_count} retrieved candidate(s). Do not invent extra candidates.
+- Never write Applicant ID: N/A or Score: N/A.
 - Pick the single best candidate and explain why in 2-3 bullet points.
 - Be concise and professional.
 
 Format your response EXACTLY like this:
 
 Top Candidates:
-1. Applicant ID: <ID> -> Score: <score>%
-2. Applicant ID: <ID> -> Score: <score>%
-3. Applicant ID: <ID> -> Score: <score>%
+1. Applicant ID: <ID from retrieved resume> -> Score: <score from retrieved resume>%
 
 Best Candidate: Applicant ID: <ID> | Score: <score>%
 

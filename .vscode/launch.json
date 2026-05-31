@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Streamlit: Resume Screening App",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": [
+        "run",
+        "demo/interface.py",
+        "--server.port",
+        "8501",
+        "--server.fileWatcherType",
+        "none"
+      ],
+      "cwd": "${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main",
+      "envFile": "${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main\\.env",
+      "console": "integratedTerminal"
+    }
+  ]
+}

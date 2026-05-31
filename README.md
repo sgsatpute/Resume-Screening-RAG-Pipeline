@@ -43,6 +43,7 @@ Verified locally:
 - Ollama had `llama3:latest` available.
 - The UI rendered the sidebar, model controls, RAG mode selector, resume upload control, title, and chat input.
 - A sample query, `Find Python developers with machine learning experience`, completed retrieval and generated a ranked candidate answer.
+- The updated uploader was verified with support for both CSV and PDF files.
 
 Startup screen from the local run:
 
@@ -51,6 +52,10 @@ Startup screen from the local run:
 Completed sample query from the local run:
 
 ![Local Streamlit query result](docs/screenshots/streamlit-query-result.png)
+
+Updated upload control with CSV/PDF support:
+
+![CSV and PDF upload control](docs/screenshots/streamlit-pdf-upload.png)
 
 ## What The App Does
 
@@ -80,7 +85,7 @@ The assistant supports three main query paths:
 - Generic RAG and RAG Fusion modes
 - RAG Fusion sub-query generation
 - Exact applicant ID retrieval
-- Resume upload through CSV files
+- Resume upload through CSV or single PDF files
 - Automatic FAISS vectorstore rebuild if `vectorstore` is missing
 - Conversation clearing
 - Retrieval verbosity panel showing:
@@ -576,7 +581,7 @@ RAG Fusion uses the original query plus generated sub-queries, retrieves candida
 
 ```python
 ChatBot(provider="ollama", model="llama3")
-ChatBot(provider="gemini", model="gemini-1.5-flash")
+ChatBot(provider="gemini", model="gemini-3.5-flash")
 ```
 
 It provides:
@@ -672,7 +677,7 @@ GEMINI_API_KEY=your_google_api_key_here
 
 ```env
 LLM_PROVIDER=Gemini
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.5-flash
 ```
 
 When Gemini is selected without an API key, the UI shows a clear configuration error instead of failing silently.
@@ -715,7 +720,9 @@ Compare the top 3 candidates
 
 ## Uploading Your Own Resumes
 
-Use the sidebar upload control with a CSV containing:
+Use the sidebar upload control with either a CSV or a single PDF resume.
+
+CSV uploads must contain:
 
 ```csv
 ID,Resume
@@ -723,10 +730,12 @@ ID,Resume
 102,"Another resume text here..."
 ```
 
+For PDF uploads, the app extracts text from the PDF and creates a one-row dataframe with `ID = 1`.
+
 After upload, the app:
 
-1. Reads the CSV into a dataframe.
-2. Validates that `ID` and `Resume` columns exist.
+1. Reads the CSV into a dataframe or extracts text from the PDF.
+2. Validates that CSV uploads include `ID` and `Resume` columns.
 3. Builds a fresh FAISS vectorstore in memory.
 4. Replaces the active retriever and dataframe for the current session.
 
@@ -846,15 +855,15 @@ The app loads FAISS with `allow_dangerous_deserialization=True` because LangChai
 
 If loading fails, let the app rebuild the index from the resume CSV.
 
-### CSV upload error
+### Upload error
 
-Uploaded files must include:
+CSV uploads must include:
 
 ```text
 ID, Resume
 ```
 
-The column names are case-sensitive in the current code.
+The column names are case-sensitive in the current code. PDF uploads must contain extractable text; scanned image-only PDFs need OCR before upload.
 
 ### Slow first run
 
