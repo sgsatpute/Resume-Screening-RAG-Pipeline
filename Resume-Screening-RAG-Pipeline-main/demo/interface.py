@@ -9,6 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.faiss import DistanceStrategy
 from langchain_huggingface import HuggingFaceEmbeddings
+from pypdf import PdfReader
 
 import chatbot_verbosity as chatbot_verbosity
 from ingest_data import ingest
@@ -24,11 +25,36 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 LLM_PROVIDERS = ["Ollama", "Gemini"]
 OLLAMA_MODELS = ["llama3", "gemma3:4b", "mistral", "llama3.1"]
-GEMINI_MODELS = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
 
 def options_with_default(options: list[str], default: str) -> list[str]:
     return [default] + [option for option in options if option != default]
+
+
+def extract_pdf_text(uploaded_file) -> str:
+    uploaded_file.seek(0)
+    reader = PdfReader(uploaded_file)
+    pages = [(page.extract_text() or "").strip() for page in reader.pages]
+    return "\n\n".join(page for page in pages if page).strip()
+
+
+def load_uploaded_resumes(uploaded_file) -> pd.DataFrame:
+    file_name = uploaded_file.name.lower()
+
+    if file_name.endswith(".csv"):
+        df_new = pd.read_csv(uploaded_file)
+        if "Resume" not in df_new.columns or "ID" not in df_new.columns:
+            raise ValueError("CSV must contain 'Resume' and 'ID' columns.")
+        return df_new
+
+    if file_name.endswith(".pdf"):
+        resume_text = extract_pdf_text(uploaded_file)
+        if not resume_text:
+            raise ValueError("Could not extract text from this PDF.")
+        return pd.DataFrame([{"ID": 1, "Resume": resume_text}])
+
+    raise ValueError("Unsupported file type. Upload a CSV or PDF file.")
 
 
 DEFAULT_PROVIDER = os.getenv("LLM_PROVIDER", "Ollama").strip().title()
@@ -36,7 +62,7 @@ if DEFAULT_PROVIDER not in LLM_PROVIDERS:
     DEFAULT_PROVIDER = "Ollama"
 
 DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3").strip()
-DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
+DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash").strip()
 
 st.set_page_config(page_title="Resume Screening GPT", page_icon=":page_facing_up:")
 st.title("Resume Screening GPT")
@@ -113,19 +139,16 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Upload Your Own Resumes")
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+    uploaded_file = st.file_uploader("Upload CSV or PDF", type=["csv", "pdf"])
 
     if uploaded_file:
         try:
-            df_new = pd.read_csv(uploaded_file)
-            if "Resume" not in df_new.columns or "ID" not in df_new.columns:
-                st.error("CSV must contain 'Resume' and 'ID' columns.")
-            else:
-                with st.spinner("Indexing resumes..."):
-                    vectordb = ingest(df_new, "Resume", st.session_state.embedding_model)
-                    st.session_state.rag_pipeline = SelfQueryRetriever(vectordb, df_new)
-                    st.session_state.df = df_new
-                st.success("Uploaded and indexed.")
+            df_new = load_uploaded_resumes(uploaded_file)
+            with st.spinner("Indexing resumes..."):
+                vectordb = ingest(df_new, "Resume", st.session_state.embedding_model)
+                st.session_state.rag_pipeline = SelfQueryRetriever(vectordb, df_new)
+                st.session_state.df = df_new
+            st.success("Uploaded and indexed.")
         except Exception as e:
             st.error(f"Upload error: {e}")
 

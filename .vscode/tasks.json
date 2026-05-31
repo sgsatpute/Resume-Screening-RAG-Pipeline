@@ -1,0 +1,56 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Python: Install requirements",
+      "type": "shell",
+      "command": "& \"${workspaceFolder}\\.venv\\Scripts\\python.exe\" -m pip install -r \"${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main\\requirements.txt\"",
+      "options": {
+        "cwd": "${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Streamlit: Run app",
+      "type": "shell",
+      "command": "& \"${workspaceFolder}\\.venv\\Scripts\\python.exe\" -m streamlit run demo/interface.py --server.port 8501 --server.fileWatcherType none",
+      "options": {
+        "cwd": "${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Gemini: Smoke test",
+      "type": "shell",
+      "command": "$code = @'\nfrom dotenv import load_dotenv\nload_dotenv(\".env\")\nfrom demo.llm_agent import ChatBot\n\nbot = ChatBot(provider=\"gemini\", model=\"gemini-3.5-flash\")\nresponse = bot.llm.invoke(\"Reply with only: Gemini OK\")\nprint(bot._to_text(response))\n'@; $code | & \"${workspaceFolder}\\.venv\\Scripts\\python.exe\" -",
+      "options": {
+        "cwd": "${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Ollama: Smoke test",
+      "type": "shell",
+      "command": "$code = @'\nfrom dotenv import load_dotenv\nload_dotenv(\".env\")\nfrom demo.llm_agent import ChatBot\n\nbot = ChatBot(provider=\"ollama\", model=\"llama3\")\nfor chunk in bot.generate_message_stream(\"Reply with only: Ollama OK\", [], [], [], \"General Chat\"):\n    print(chunk, end=\"\")\n'@; $code | & \"${workspaceFolder}\\.venv\\Scripts\\python.exe\" -",
+      "options": {
+        "cwd": "${workspaceFolder}\\Resume-Screening-RAG-Pipeline-main"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    }
+  ]
+}

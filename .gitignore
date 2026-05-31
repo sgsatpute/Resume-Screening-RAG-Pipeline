@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 .env
 *.log
+Resume-Screening-RAG-Pipeline-main/data/uploaded-resumes/
