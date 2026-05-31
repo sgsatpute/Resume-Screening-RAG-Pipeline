@@ -7,7 +7,7 @@ The current runnable demo is a Streamlit application that uses:
 - FAISS for vector search over resume chunks
 - Hugging Face sentence-transformer embeddings
 - LangChain for document loading, splitting, retrieval, and LLM integration
-- Ollama with Llama3 for local chat and RAG Fusion query generation
+- Ollama or Gemini for chat and RAG Fusion query generation
 - Pandas for resume CSV loading and uploaded dataset handling
 
 The repository also contains research notebooks, generated test sets, evaluation outputs, PDF resume conversion utilities, and prebuilt vector indexes.
@@ -41,7 +41,7 @@ Verified locally:
 - The app loaded the default `data/main-data/synthetic-resumes.csv` dataset.
 - The FAISS vectorstore and Hugging Face embedding model initialized.
 - Ollama had `llama3:latest` available.
-- The UI rendered the sidebar, RAG mode selector, resume upload control, title, and chat input.
+- The UI rendered the sidebar, model controls, RAG mode selector, resume upload control, title, and chat input.
 - A sample query, `Find Python developers with machine learning experience`, completed retrieval and generated a ranked candidate answer.
 
 Startup screen from the local run:
@@ -75,7 +75,8 @@ The assistant supports three main query paths:
 ## Current Demo Features
 
 - Streamlit chat interface
-- Local Llama3 model through Ollama
+- LLM provider switcher for Ollama and Gemini
+- Configurable Ollama and Gemini model selections
 - Generic RAG and RAG Fusion modes
 - RAG Fusion sub-query generation
 - Exact applicant ID retrieval
@@ -108,7 +109,7 @@ flowchart TD
     UI --> State["st.session_state"]
     State --> Embeddings["HuggingFaceEmbeddings"]
     State --> Retriever["SelfQueryRetriever"]
-    State --> LLM["ChatBot / Ollama llama3"]
+    State --> LLM["ChatBot / selected LLM provider"]
     Retriever --> QueryType["detect_query_type"]
     QueryType --> IDPath["Applicant ID lookup"]
     QueryType --> JDPath["Job description retrieval"]
@@ -245,7 +246,11 @@ Responses are streamed through Streamlit with `st.write_stream()`, so the answer
 | `embedding_model` | `interface.py` | Reuses the Hugging Face embedding model. |
 | `df` | `interface.py` | Active resume dataframe, either default synthetic data or uploaded CSV. |
 | `rag_pipeline` | `interface.py` | Active `SelfQueryRetriever` connected to the active vectorstore and dataframe. |
-| `llm` | `interface.py` | Cached `ChatBot` wrapper around Ollama/Llama3. |
+| `llm` | `interface.py` | Cached `ChatBot` wrapper around the selected provider/model. |
+| `llm_provider` | Sidebar selectbox | Current LLM backend: `Ollama` or `Gemini`. |
+| `ollama_model` | Sidebar selectbox | Current local Ollama model. |
+| `gemini_model` | Sidebar selectbox | Current Gemini API model. |
+| `llm_signature` | `interface.py` | Provider/model tuple used to refresh the cached LLM only when needed. |
 | `rag_selection` | Streamlit selectbox | Current mode: `Generic RAG` or `RAG Fusion`. |
 
 ### Retriever metadata
@@ -298,15 +303,16 @@ This is the Streamlit entry point and runtime coordinator. It does not define cu
 | Block | What it does | Why it matters |
 | --- | --- | --- |
 | Imports | Loads Streamlit, Pandas, LangChain message types, FAISS, embeddings, `ChatBot`, `ingest`, and `SelfQueryRetriever`. | Connects the UI, retrieval, vectorstore, and model layers. |
-| Config constants | Defines `DATA_PATH`, `FAISS_PATH`, and `EMBEDDING_MODEL`. | These control the default resume CSV, default local FAISS folder, and embedding model. |
-| Page setup | Calls `st.set_page_config()`, `st.title()`, and `st.caption()`. | Gives the app its visible title and local-Llama3 positioning. |
+| Config constants | Defines `DATA_PATH`, `FAISS_PATH`, `EMBEDDING_MODEL`, model lists, and provider defaults. | These control the default resume CSV, default local FAISS folder, embedding model, and selectable LLM backends. |
+| Page setup | Calls `st.set_page_config()`, `st.title()`, and `st.caption()`. | Gives the app its visible title and multi-provider positioning. |
 | `chat_history` init | Creates an empty chat list when missing. | Preserves conversation turns across Streamlit reruns. |
 | `resume_list` init | Creates an empty list for latest retrieved resumes. | Lets the app keep retrieval context available after a query. |
 | `embedding_model` init | Builds `HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")`. | Embeddings are expensive, so the app caches them in session state. |
 | `df` init | Reads `data/main-data/synthetic-resumes.csv`. | Provides the default resume corpus. |
 | `rag_pipeline` init | Loads FAISS from `vectorstore`; if loading fails, rebuilds with `ingest()`. | Makes the app resilient when the index is missing. |
-| `llm` init | Creates one `ChatBot()` instance. | Avoids recreating the Ollama wrapper on each UI rerun. |
-| Sidebar | Provides RAG mode selection, CSV upload, clear conversation, examples, and about text. | Gives non-code controls for changing retrieval behavior and dataset. |
+| LLM defaults init | Creates default provider/model values from `.env` or built-in defaults. | Lets the app start with Ollama by default while allowing Gemini configuration. |
+| Sidebar | Provides provider/model selection, RAG mode selection, CSV upload, clear conversation, examples, and about text. | Gives non-code controls for changing retrieval behavior, model backend, and dataset. |
+| `llm` init | Creates or refreshes one `ChatBot(provider, model)` instance. | Avoids recreating the LLM wrapper unless the selected provider/model changes. |
 | Upload branch | Validates uploaded CSV columns, builds a new FAISS index in memory, and swaps the active retriever/dataframe. | Lets users test their own resumes without editing files. |
 | Chat history rendering | Replays `HumanMessage`, `AIMessage`, and verbosity tuples. | Keeps the chat transcript visible after reruns. |
 | Chat input branch | Runs retrieval, shows retrieved candidates, streams the LLM response, renders verbosity, and appends history. | This is the main request-response loop. |
@@ -404,15 +410,19 @@ The application-level retriever used by Streamlit.
 
 ### `demo/llm_agent.py`
 
-This file wraps the local Llama3 model through Ollama.
+This file wraps the selected LLM backend. Ollama is the default local provider, and Gemini is available when `langchain-google-genai` and an API key are configured.
 
 #### `class ChatBot`
 
 | Method | Working |
 | --- | --- |
-| `__init__()` | Creates `Ollama(model="llama3")`. |
-| `generate_subquestions(question)` | Prompts Llama3 to produce 3-4 focused search queries, strips numbering/bullets, removes short stray lines, and returns up to four queries. |
-| `generate_message_stream(question, docs, history, prompt_cls)` | Builds the final prompt for the current query type and returns `self.llm.stream(prompt)`. |
+| `__init__(provider, model)` | Stores the selected provider/model and builds the matching LLM client. |
+| `_build_ollama()` | Uses `langchain-ollama` when installed, with a fallback to the older LangChain community Ollama wrapper. |
+| `_build_gemini()` | Uses `ChatGoogleGenerativeAI` and requires `GOOGLE_API_KEY` or `GEMINI_API_KEY`. |
+| `_to_text(response)` | Normalizes string, message, and chunk responses into plain text. |
+| `_stream_text(prompt)` | Streams text chunks consistently across providers. |
+| `generate_subquestions(question)` | Prompts the selected model to produce 3-4 focused search queries, strips numbering/bullets, removes short stray lines, and returns up to four queries. |
+| `generate_message_stream(question, docs, history, prompt_cls)` | Builds the final prompt for the current query type and returns provider-normalized streamed text. |
 
 `generate_message_stream()` has three prompt modes:
 
@@ -562,14 +572,16 @@ RAG Fusion uses the original query plus generated sub-queries, retrieves candida
 
 ### LLM Agent
 
-`demo/llm_agent.py` wraps Ollama:
+`demo/llm_agent.py` wraps the selected model provider:
 
 ```python
-Ollama(model="llama3")
+ChatBot(provider="ollama", model="llama3")
+ChatBot(provider="gemini", model="gemini-1.5-flash")
 ```
 
 It provides:
 
+- provider/model abstraction for Ollama and Gemini
 - sub-query generation for RAG Fusion
 - structured candidate recommendation prompts
 - structured applicant ID analysis prompts
@@ -606,7 +618,8 @@ The repository includes many large data and result files. They are used as datas
 
 - Python 3.10 or 3.11 recommended
 - Ollama installed locally
-- Llama3 pulled in Ollama
+- At least one Ollama model pulled locally, such as `llama3`
+- Gemini API key if using the Gemini provider
 - Enough disk space for embeddings, FAISS indexes, and the included datasets
 
 Install Python packages from inside the nested project directory:
@@ -618,11 +631,13 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-The current app imports `langchain_huggingface`. If your environment does not already have it, install it too:
+Copy the example environment file if you want to configure defaults:
 
 ```powershell
-pip install langchain-huggingface
+copy .env.example .env
 ```
+
+Do not commit your real `.env` file.
 
 ## Ollama Setup
 
@@ -639,6 +654,39 @@ ollama serve
 ```
 
 If Ollama is already running as a desktop/background service, you do not need to run `ollama serve` again.
+
+## Gemini Setup
+
+Gemini support is optional. It is only required when the sidebar provider is set to `Gemini`.
+
+1. Install dependencies from `requirements.txt`.
+2. Set one of these environment variables in `.env` or your shell:
+
+```env
+GOOGLE_API_KEY=your_google_api_key_here
+# or
+GEMINI_API_KEY=your_google_api_key_here
+```
+
+3. Optionally choose a default Gemini model:
+
+```env
+LLM_PROVIDER=Gemini
+GEMINI_MODEL=gemini-1.5-flash
+```
+
+When Gemini is selected without an API key, the UI shows a clear configuration error instead of failing silently.
+
+## Provider Selection
+
+The sidebar includes:
+
+- `LLM Provider`: `Ollama` or `Gemini`
+- `Ollama Model`: shown when Ollama is selected
+- `Gemini Model`: shown when Gemini is selected
+- `RAG Mode`: `Generic RAG` or `RAG Fusion`
+
+The retrieval pipeline does not change when providers change. FAISS retrieval, resume lookup, scoring, and verbosity stay the same; only the LLM used for sub-query generation and response generation changes.
 
 ## Run The Demo
 
@@ -732,7 +780,7 @@ The notebooks under `preprocessing/` and `evaluation/` document the original res
   - answer similarity
 - computing selection accuracy and semantic similarity
 
-Some notebook cells still reference OpenAI or Azure OpenAI style endpoints. The current Streamlit demo does not require an OpenAI API key because it uses local Ollama/Llama3.
+Some notebook cells still reference OpenAI or Azure OpenAI style endpoints. The current Streamlit demo does not require an OpenAI API key. It can run locally with Ollama, or use Gemini when a Google API key is configured.
 
 ## Evaluation Images
 
@@ -755,9 +803,30 @@ Install the missing package:
 pip install langchain-huggingface
 ```
 
+### `ModuleNotFoundError: langchain_google_genai`
+
+Install the Gemini integration:
+
+```powershell
+pip install langchain-google-genai
+```
+
+You only need this package when using the Gemini provider.
+
+### Gemini API key error
+
+If Gemini is selected, set one of these variables:
+
+```env
+GOOGLE_API_KEY=your_google_api_key_here
+GEMINI_API_KEY=your_google_api_key_here
+```
+
+Then restart Streamlit so `load_dotenv()` can read the updated `.env` file.
+
 ### Ollama connection error
 
-Confirm Llama3 is installed:
+Confirm your selected Ollama model is installed:
 
 ```powershell
 ollama list
@@ -794,10 +863,10 @@ The first run may download the embedding model and build or load FAISS indexes. 
 ## Notes For Development
 
 - The app stores `ChatBot`, embeddings, dataframe, retriever, and chat history in `st.session_state`.
-- `ChatBot` is cached in session state so it is not recreated on every Streamlit rerun.
+- `ChatBot` is cached in session state and recreated only when the selected provider/model changes.
 - The retriever uses small-to-big retrieval: chunk-level similarity search returns IDs, then full resumes are sent to the LLM.
 - The scoring helper is keyword-based and separate from FAISS similarity; it is used to present readable match percentages.
-- The `.env` file should not contain committed real secrets. It is not needed for the current local Ollama demo.
+- The `.env` file should not contain committed real secrets. Use `.env.example` as the template.
 
 ## License
 
