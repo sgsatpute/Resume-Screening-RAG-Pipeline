@@ -3,5 +3,6 @@
 __pycache__/
 *.pyc
 .env
+.streamlit/secrets.toml
 *.log
 Resume-Screening-RAG-Pipeline-main/data/uploaded-resumes/

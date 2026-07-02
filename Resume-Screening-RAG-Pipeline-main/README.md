@@ -26,14 +26,14 @@ On the other hand, RAG Fusion is effective in addressing complex and ambiguous h
 
 ## Demo
 
-The demo interface of the chatbot can be found here: [Streamlit](https://resume-screening-rag-gpt.streamlit.app)
+The demo interface can run locally through `demo/interface.py` or be deployed from the repository root with `streamlit_app.py`.
 
 Default synthetic resume data set used in the demo: [GitHub](https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline/blob/main/data/main-data/synthetic-resumes.csv)
 
 Source job description dataset: [Kaggle](https://www.kaggle.com/datasets/kshitizregmi/jobs-and-job-description)
 
 > [!WARNING]
-> The file uploader is still quite unstable in Streamlit deployment. I do not recommend using it.
+> Streamlit Community Cloud should use Gemini. Ollama is supported for local runs, but Streamlit Cloud does not provide a local Ollama server.
 
 **Starting screen:**
 ![Screenshot_125](https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline/assets/46376260/3a7122d5-1c8e-4d98-bb06-cbc28813a2c3)
@@ -75,16 +75,60 @@ The pipeline begins by processing resumes into a vector storage. Upon receiving 
 To set up the project locally:
 ```
 # Clone the project
-git clone https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline.git
+git clone https://github.com/sgsatpute/Resume-Screening-RAG-Pipeline.git
 
 # Install dependencies
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 To run the Streamlit demo locally:
 ```
 streamlit run demo/interface.py
 ```
+
+## Streamlit Community Cloud Deployment
+
+From this repository, deploy the root wrapper app:
+
+```text
+streamlit_app.py
+```
+
+Recommended Streamlit Cloud settings:
+
+- Main file path: `streamlit_app.py`
+- Python version: `3.12`
+- Dependencies: root `requirements.txt`
+
+Add these secrets in Streamlit Cloud Advanced settings:
+
+```toml
+LLM_PROVIDER = "Gemini"
+GEMINI_MODEL = "gemini-3.5-flash"
+GOOGLE_API_KEY = "your_google_api_key_here"
+OLLAMA_NUM_GPU = "0"
+```
+
+## Latest Evaluation Results
+
+The current app retriever was improved by widening the FAISS/RRF candidate pool from 5 to 50 candidates, scoring the full pool, and adding normalized skill and role-phrase scoring before selecting the final top 5.
+
+Full 500-row retrieval evaluation:
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| Hit@1 | 0.6240 | 0.8160 |
+| Hit@3 | 0.6660 | 0.8960 |
+| Hit@5 | 0.6680 | 0.9100 |
+| MRR | 0.6447 | 0.8559 |
+| Top-5 misses | 166 | 45 |
+
+Provider generation sample using the improved retriever:
+
+| Provider | Model | Rows | Generated Hit@1 | Avg latency |
+| --- | --- | ---: | ---: | ---: |
+| Gemini | gemini-3.5-flash | 5 | 0.8000 | 17.81s |
+| Ollama | gemma3:4b | 5 | 0.8000 | 52.77s |
 
 ## Contributions
 

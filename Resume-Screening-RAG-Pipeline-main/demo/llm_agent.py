@@ -28,14 +28,15 @@ class ChatBot:
         raise ValueError(f"Unsupported LLM provider: {self.provider}")
 
     def _build_ollama(self):
+        num_gpu = int(os.getenv("OLLAMA_NUM_GPU", "0"))
         try:
             from langchain_ollama import OllamaLLM
 
-            return OllamaLLM(model=self.model)
+            return OllamaLLM(model=self.model, num_gpu=num_gpu)
         except ImportError:
             from langchain_community.llms import Ollama
 
-            return Ollama(model=self.model)
+            return Ollama(model=self.model, num_gpu=num_gpu)
 
     def _build_gemini(self):
         api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
@@ -131,9 +132,9 @@ Instructions:
 Format your response EXACTLY like this:
 
 Top Candidates:
-1. Applicant ID: <ID from retrieved resume> -> Score: <score from retrieved resume>%
+1. Applicant ID: <ID from retrieved resume> -> Score: <score from retrieved resume, including percent sign>
 
-Best Candidate: Applicant ID: <ID> | Score: <score>%
+Best Candidate: Applicant ID: <ID> | Score: <score from retrieved resume, including percent sign>
 
 Reason:
 - <reason 1>

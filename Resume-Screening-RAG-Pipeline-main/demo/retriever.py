@@ -2,7 +2,7 @@ import sys
 import re
 sys.dont_write_bytecode = True
 
-RAG_K_THRESHOLD = 5
+RAG_K_THRESHOLD = 50
 
 # ── Skills list ───────────────────────────────────────────────────────────────
 SKILLS = [
@@ -66,15 +66,93 @@ def detect_query_type(question: str):
 
 
 # ── Scoring helpers ───────────────────────────────────────────────────────────
+STOPWORDS = {
+    "a", "an", "the", "and", "or", "of", "for", "to", "in", "with", "on",
+    "from", "by", "as", "is", "are", "was", "were", "be", "been", "being",
+    "you", "your", "we", "our", "will", "can", "may", "should", "must",
+    "have", "has", "had", "do", "does", "did", "this", "that", "these",
+    "those", "into", "about", "across", "among", "per", "such", "other",
+    "only", "any", "all", "at", "within", "without", "not", "no", "yes",
+    "if", "then", "than", "etc", "job", "role", "position", "candidate",
+    "candidates", "applicant", "applicants", "work", "working", "experience",
+    "years", "year", "skill", "skills", "required", "preferred",
+    "requirement", "responsibilities", "responsible", "good", "strong",
+    "excellent", "knowledge", "using", "use", "based", "looking", "hire",
+    "hiring", "need", "full", "time", "contract", "remote", "salary",
+    "schedule", "education", "degree", "bachelor", "computer", "science",
+    "company", "team", "teams", "client", "clients", "product", "products",
+    "development", "developer", "engineer", "manager", "analyst", "designer",
+}
+
+ROLE_PHRASES = {
+    "ios": ["ios", "iphone", "ipad", "swift", "objective-c", "xcode", "core data"],
+    "android": ["android", "kotlin", "java", "mobile"],
+    "java": ["java", "spring", "hibernate", "j2ee", "microservices"],
+    "python": ["python", "django", "flask", "machine learning", "data science"],
+    "data": ["data", "sql", "python", "pandas", "spark", "hadoop", "tableau", "power bi"],
+    "business analyst": ["business analyst", "ba", "requirements", "stakeholder", "brd", "frd", "user stories"],
+    "project manager": ["project manager", "scrum", "agile", "pmp", "project management"],
+    "network": ["network", "desktop", "support", "linux", "windows", "troubleshooting"],
+    "devops": ["devops", "aws", "azure", "docker", "kubernetes", "jenkins", "ci/cd"],
+}
+
+
+def _tokens(text: str) -> list[str]:
+    return [
+        token
+        for token in re.findall(r"[a-z0-9+#.]+", text.lower())
+        if len(token) > 1 and token not in STOPWORDS
+    ]
+
+
+def _ngrams(tokens: list[str], n: int) -> set[tuple[str, ...]]:
+    return {tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)}
+
+
+def _role_phrase_score(query: str, resume_text: str) -> float:
+    query_lower = query.lower()
+    resume_lower = resume_text.lower()
+    required_phrases = []
+
+    for anchor, phrases in ROLE_PHRASES.items():
+        if anchor in query_lower or any(phrase in query_lower for phrase in phrases):
+            required_phrases.extend(phrases)
+
+    if not required_phrases:
+        return 0.0
+
+    matches = sum(1 for phrase in required_phrases if phrase in resume_lower)
+    return matches / len(required_phrases)
+
+
+def _semantic_bonus(query: str, resume_text: str) -> float:
+    query_tokens = _tokens(query)
+    resume_tokens = _tokens(resume_text)
+    if not query_tokens or not resume_tokens:
+        return 0.0
+
+    query_terms = set(query_tokens)
+    resume_terms = set(resume_tokens)
+    query_bigrams = _ngrams(query_tokens, 2)
+    resume_bigrams = _ngrams(resume_tokens, 2)
+    query_skills = set(extract_skills(query))
+    resume_skills = set(extract_skills(resume_text))
+
+    term_score = (len(query_terms & resume_terms) / len(query_terms)) * 45
+    bigram_score = (len(query_bigrams & resume_bigrams) / max(len(query_bigrams), 1)) * 25
+    skill_score = (len(query_skills & resume_skills) / max(len(query_skills), 1)) * 25
+    phrase_score = _role_phrase_score(query, resume_text) * 20
+
+    return term_score + bigram_score + skill_score + phrase_score
+
+
 def compute_score(query: str, resume_text: str) -> float:
     """
-    Keyword + bigram overlap match score.
+    Weighted match score used to order candidates after vector retrieval.
 
-    Bug 3 fix: bigrams added so "machine learning" scores as one phrase hit
-    (weighted 2x) rather than two weak unigram hits.
-
-    Bug 4 fix: removed arbitrary (len % 7) tiebreak. Replaced with a
-    skills-density bonus (max +2 pts) so richer resumes win ties meaningfully.
+    The base score preserves the earlier unigram + bigram behavior. A smaller
+    normalized bonus improves ordering when a broader retrieval pool contains
+    close candidates for the same role family.
     """
     if not query.strip() or not resume_text.strip():
         return 0.0
@@ -105,7 +183,8 @@ def compute_score(query: str, resume_text: str) -> float:
     skill_count = len(extract_skills(resume_text))
     tiebreak = min(skill_count / 50, 1.0) * 2.0
 
-    return round(base_score + tiebreak, 2)
+    score = base_score + tiebreak + (_semantic_bonus(query, resume_text) * 0.5)
+    return round(min(score, 100), 2)
 
 
 def extract_skills(text: str) -> list:
@@ -137,10 +216,10 @@ class RAGRetriever():
 
     def retrieve_documents_with_id(self, doc_id_with_score: dict, threshold=5, query=""):
         id_resume_dict = dict(zip(self.df["ID"].astype(str), self.df["Resume"]))
-        top_ids = sorted(doc_id_with_score, key=doc_id_with_score.get, reverse=True)[:threshold]
+        ranked_ids = sorted(doc_id_with_score, key=doc_id_with_score.get, reverse=True)
 
-        results = []
-        for rid in top_ids:
+        scored_results = []
+        for rank, rid in enumerate(ranked_ids):
             if rid not in id_resume_dict:
                 continue
             resume = id_resume_dict[rid]
@@ -152,14 +231,11 @@ class RAGRetriever():
                 f"Skills: {', '.join(skills) if skills else 'N/A'}\n\n"
                 f"{resume}"
             )
-            results.append(formatted)
+            scored_results.append((score, -rank, formatted))
 
         # Sort highest score first so LLM sees best candidates at top
-        results.sort(
-            key=lambda x: float(re.search(r"Match Score: ([\d.]+)%", x).group(1))
-                if re.search(r"Match Score: ([\d.]+)%", x) else 0,
-            reverse=True,
-        )
+        scored_results.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        results = [formatted for _, _, formatted in scored_results[:threshold]]
         return results
 
 

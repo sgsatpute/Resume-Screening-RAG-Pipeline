@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -17,10 +18,34 @@ from llm_agent import ChatBot
 from retriever import SelfQueryRetriever
 
 sys.dont_write_bytecode = True
-load_dotenv()
 
-DATA_PATH = "data/main-data/synthetic-resumes.csv"
-FAISS_PATH = "vectorstore"
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = APP_DIR.parent
+
+load_dotenv(PROJECT_DIR / ".env")
+
+
+def load_deployment_secrets() -> None:
+    for key in [
+        "LLM_PROVIDER",
+        "OLLAMA_MODEL",
+        "OLLAMA_NUM_GPU",
+        "GEMINI_MODEL",
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY",
+    ]:
+        try:
+            value = st.secrets.get(key)
+        except Exception:
+            value = None
+        if value and not os.getenv(key):
+            os.environ[key] = str(value)
+
+
+load_deployment_secrets()
+
+DATA_PATH = PROJECT_DIR / "data/main-data/synthetic-resumes.csv"
+FAISS_PATH = PROJECT_DIR / "vectorstore"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 LLM_PROVIDERS = ["Ollama", "Gemini"]
@@ -57,7 +82,10 @@ def load_uploaded_resumes(uploaded_file) -> pd.DataFrame:
     raise ValueError("Unsupported file type. Upload a CSV or PDF file.")
 
 
-DEFAULT_PROVIDER = os.getenv("LLM_PROVIDER", "Ollama").strip().title()
+DEFAULT_PROVIDER = os.getenv(
+    "LLM_PROVIDER",
+    "Gemini" if (os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")) else "Ollama",
+).strip().title()
 if DEFAULT_PROVIDER not in LLM_PROVIDERS:
     DEFAULT_PROVIDER = "Ollama"
 
