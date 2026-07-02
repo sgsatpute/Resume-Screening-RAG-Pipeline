@@ -1,0 +1,15 @@
+provider,model,ground_truth_id,retrieved_top1_id,generated_best_id,generated_hit_at_1,generated_id_in_retrieved,latency_seconds,error,answer
+ollama,llama3,946,946,946,1,1,91.03,,"Top Candidates:
+
+1. Applicant ID: 946 -> Score: 52.19%%
+2. Applicant ID: 977 -> Score: 43.83%%
+3. Applicant ID: 252 -> Score: 29.88%%
+4. Applicant ID: 843 -> Score: 29.63%%
+5. Applicant ID: 951 -> Score: 28.9%
+
+Best Candidate: Applicant ID: 946 | Score: 52.19%
+
+Reason:
+- The candidate has the most relevant skills and experience, including expertise in Swift, Core Data, Core Animation, and Firebase.
+- Their work experience matches the job requirements, with a strong understanding of UX and ability to develop user-friendly iOS apps that enhance user experience.
+- They have excellent communication skills, both written and oral, which is a non-negotiable requirement."

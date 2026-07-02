@@ -57,6 +57,53 @@ Updated upload control with CSV/PDF support:
 
 ![CSV and PDF upload control](docs/screenshots/streamlit-pdf-upload.png)
 
+## Streamlit Community Cloud Deployment
+
+This repository is ready to deploy with the root wrapper app:
+
+```text
+streamlit_app.py
+```
+
+Recommended Streamlit Community Cloud settings:
+
+- Repository: your GitHub repository for this project
+- Branch: the branch containing these files
+- Main file path: `streamlit_app.py`
+- Python version: `3.12`
+
+Add these secrets in Streamlit Cloud Advanced settings:
+
+```toml
+LLM_PROVIDER = "Gemini"
+GEMINI_MODEL = "gemini-3.5-flash"
+GOOGLE_API_KEY = "your_google_api_key_here"
+OLLAMA_NUM_GPU = "0"
+```
+
+Use Gemini for the deployed app. Ollama is still supported for local runs, but Streamlit Community Cloud does not provide a local Ollama server.
+
+## Latest Evaluation Results
+
+The current retriever was improved by widening the FAISS/RRF candidate pool from 5 to 50, scoring the full retrieved pool, and adding normalized skill and role-phrase scoring before selecting the final top 5.
+
+Full 500-row retrieval evaluation:
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| Hit@1 | 0.6240 | 0.8160 |
+| Hit@3 | 0.6660 | 0.8960 |
+| Hit@5 | 0.6680 | 0.9100 |
+| Mean reciprocal rank | 0.6447 | 0.8559 |
+| Top-5 misses | 166 | 45 |
+
+Provider generation sample using the improved retriever:
+
+| Provider | Model | Rows | Generated Hit@1 | Avg latency |
+| --- | --- | ---: | ---: | ---: |
+| Gemini | `gemini-3.5-flash` | 5 | 0.8000 | 17.81s |
+| Ollama | `gemma3:4b` | 5 | 0.8000 | 52.77s |
+
 ## What The App Does
 
 The assistant supports three main query paths:

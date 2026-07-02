@@ -1,0 +1,131 @@
+provider,model,testset,row,ground_truth_id,retrieved_top1_id,retrieved_top5_ids,retrieved_top5_scores,generated_best_id,generated_ids,retrieval_hit_at_1,generated_hit_at_1,generated_id_in_retrieved,kept_retrieval_top1,latency_seconds,answer_chars,error,answer
+ollama,gemma3:4b,1,0,946,946,946|977|252|843|951,52.19|43.83|29.88|29.63|28.9,946,946|977|252|843|951|946,1,1,1,1,33.5,973,,"Top Candidates:
+1. Applicant ID: 946 -> Score: 52.19%
+2. Applicant ID: 977 -> Score: 43.83%
+3. Applicant ID: 252 -> Score: 29.88%
+4. Applicant ID: 843 -> Score: 29.63%
+5. Applicant ID: 951 -> Score: 28.9%
+
+Best Candidate: Applicant ID: 946 | Score: 52.19%
+
+Reason:
+- This candidate’s experience directly aligns with the hiring manager's requirements, holding 4 years of iOS development expertise and specifically listing Swift, Core Data, Core Animation, and Firebase – all key technologies mentioned in the request.
+- The resume highlights quantifiable achievements like a 20% increase in app downloads and a 15% decrease in crashes, demonstrating an ability to deliver results focused on improving application quality - mirroring the manager’s high priority for quality over simply meeting scope.
+- Finally, the summary explicitly states a strong understanding of UX which is critical for user-friendly iOS applications and a requirement emphasized by the hiring manager."
+gemini,gemini-3.5-flash,1,0,946,946,946|977|252|843|951,52.19|43.83|29.88|29.63|28.9,946,946|977|252|843|951|946,1,1,1,1,10.23,925,,"Top Candidates:
+1. Applicant ID: 946 -> Score: 52.19%
+2. Applicant ID: 977 -> Score: 43.83%
+3. Applicant ID: 252 -> Score: 29.88%
+4. Applicant ID: 843 -> Score: 29.63%
+5. Applicant ID: 951 -> Score: 28.9%
+
+Best Candidate: Applicant ID: 946 | Score: 52.19%
+
+Reason:
+- **Perfect Skill & Tech Stack Alignment:** Possesses 4 years of experience (fitting the 3-7 years requirement) with exact expertise in Swift, Core Data, Core Animation, Firebase, Apple HIG, PN, APIs, GitLab, and CI.
+- **Direct Domain & Location Match:** Already located in Ahmedabad and has hands-on experience developing iOS apps in the exact categories requested (Photo & Video, Business, Finance, Productivity, and Kids).
+- **Collaborative & Communication Excellence:** Demonstrates a proven track record of working with cross-functional teams (Analysts, Designers, Architects), strong UX understanding, and excellent written and oral communication skills."
+ollama,gemma3:4b,2,0,746,943,943|722|662|789|370,23.03|22.94|20.08|19.5|19.35,789,789|662|722|943|370|789,0,0,1,0,61.85,776,,"Top Candidates:
+1. Applicant ID: 789 -> Score: 19.5%
+2. Applicant ID: 662 -> Score: 20.08%
+3. Applicant ID: 722 -> Score: 22.94%
+4. Applicant ID: 943 -> Score: 23.03%
+5. Applicant ID: 370 -> Score: 19.35%
+
+Best Candidate: Applicant ID: 789 | Score: 19.5%
+
+Reason:
+- This candidate possesses the most directly relevant skills outlined in the job description, including JavaScript, React, AWS, Git, and experience with NoSQL databases – all explicitly mentioned as requirements.
+- Their background in NodeJS development aligns perfectly with Mysa's tech stack focusing on web and server applications.
+- The candidate’s objective clearly reflects the desired role - a JavaScript Developer focused on mobile application and backend infrastructure within a cloud environment (AWS)."
+gemini,gemini-3.5-flash,2,0,746,943,943|722|662|789|370,23.03|22.94|20.08|19.5|19.35,789,943|722|662|789|370|789,0,0,1,0,14.76,777,,"Top Candidates:
+1. Applicant ID: 943 -> Score: 23.03%
+2. Applicant ID: 722 -> Score: 22.94%
+3. Applicant ID: 662 -> Score: 20.08%
+4. Applicant ID: 789 -> Score: 19.5%
+5. Applicant ID: 370 -> Score: 19.35%
+
+Best Candidate: Applicant ID: 789 | Score: 19.5%
+
+Reason:
+- Perfectly aligns with the required 3-5 years of software development experience (has 4+ years) and holds the mandatory Bachelor of Science in Computer Science.
+- Demonstrates strong cloud expertise as a Certified AWS Solutions Architect with hands-on experience in AWS Lambda, which is a core requirement for building the smart home backend infrastructure.
+- Explicitly meets the English fluency requirement and has a proven track record of developing with JavaScript, ReactJS, and both SQL and NoSQL databases."
+ollama,gemma3:4b,3,0,546,546,546|577|175|924|739,53.8|42.51|35.09|35.0|34.78,546,546|577|175|924|739|546,1,1,1,1,47.23,785,,"Top Candidates:
+1. Applicant ID: 546 -> Score: 53.8%
+2. Applicant ID: 577 -> Score: 42.51%
+3. Applicant ID: 175 -> Score: 35.09%
+4. Applicant ID: 924 -> Score: 35.0%
+5. Applicant ID: 739 -> Score: 34.78%
+
+Best Candidate: Applicant ID: 546 | Score: 53.8%
+
+Reason:
+- John Smith’s resume demonstrates a strong alignment with the job description, specifically highlighting experience with .Net, ASP .Net, Java, and J2EE – all listed as required skills.
+- He possesses relevant certifications like the Microsoft Azure Developer Associate and Oracle Certified Professional, Java SE 11 Developer, adding valuable technical credentials.
+- The summary clearly expresses his desire for a challenging role utilizing his skills and growth potential, fitting with the stated hiring manager’s needs."
+gemini,gemini-3.5-flash,3,0,546,546,546|577|175|924|739,53.8|42.51|35.09|35.0|34.78,546,546|577|175|924|739|546,1,1,1,1,12.81,784,,"Top Candidates:
+1. Applicant ID: 546 -> Score: 53.8%
+2. Applicant ID: 577 -> Score: 42.51%
+3. Applicant ID: 175 -> Score: 35.09%
+4. Applicant ID: 924 -> Score: 35.0%
+5. Applicant ID: 739 -> Score: 34.78%
+
+Best Candidate: Applicant ID: 546 | Score: 53.8%
+
+Reason:
+- **Perfect Location Match**: The candidate is based in Thane, aligning exactly with the job's location requirement.
+- **Complete Skill Alignment**: Possesses direct experience in all key technologies listed in the job description, including .Net, ASP .Net, Java, J2EE, and Java frameworks (Spring).
+- **Relevant Education & Certifications**: Holds a Bachelor of Computer Science from the University of Mumbai and relevant certifications (Azure Developer Associate and Oracle Certified Professional Java SE 11 Developer)."
+ollama,gemma3:4b,4,0,346,346,346|377|269|661|52,98.07|55.13|32.68|30.94|30.77,346,346|377|269|661|52|346,1,1,1,1,63.58,760,,"Top Candidates:
+1. Applicant ID: 346 -> Score: 98.07%
+2. Applicant ID: 377 -> Score: 55.13%
+3. Applicant ID: 269 -> Score: 32.68%
+4. Applicant ID: 661 -> Score: 30.94%
+5. Applicant ID: 52 -> Score: 30.77%
+
+Best Candidate: Applicant ID: 346 | Score: 98.07%
+
+Reason:
+- This candidate's experience aligns almost perfectly with the hiring manager’s requirements, particularly around leading automation, cloud scale systems, and agile DevOps practices.
+- The AWS Certified DevOps Engineer – Professional certification directly addresses a preferred qualification, adding significant credibility.
+- Their summary highlights key responsibilities like defining architecture patterns, establishing standards, and mentoring teams - mirroring the core needs of this role."
+gemini,gemini-3.5-flash,4,0,346,346,346|377|269|661|52,98.07|55.13|32.68|30.94|30.77,346,346|377|269|661|52|346,1,1,1,1,11.32,902,,"Top Candidates:
+1. Applicant ID: 346 -> Score: 98.07%
+2. Applicant ID: 377 -> Score: 55.13%
+3. Applicant ID: 269 -> Score: 32.68%
+4. Applicant ID: 661 -> Score: 30.94%
+5. Applicant ID: 52 -> Score: 30.77%
+
+Best Candidate: Applicant ID: 346 | Score: 98.07%
+
+Reason:
+- Perfectly aligns with all preferred qualifications, possessing 5+ years of end-to-end automation experience, 4+ years of configuration management (Terraform, Ansible, etc.), and strong expertise in Python, Kubernetes, and multi-cloud environments (AWS, Azure, GCP).
+- Demonstrates proven leadership and mentoring experience, directly matching the role's requirement to lead, develop, and coach teams in building automated deployment systems.
+- Holds a Bachelor of Science in Computer Science and the highly relevant AWS Certified DevOps Engineer – Professional certification, validating deep technical expertise in cloud-scale systems."
+ollama,gemma3:4b,5,0,146,146,146|177|662|533|690,38.96|34.52|30.0|27.83|26.85,146,662|146|177|533|690|146,1,1,1,1,57.67,867,,"Top Candidates:
+1. Applicant ID: 662 -> Score: 30.0%
+2. Applicant ID: 146 -> Score: 38.96%
+3. Applicant ID: 177 -> Score: 34.52%
+4. Applicant ID: 533 -> Score: 27.83%
+5. Applicant ID: 690 -> Score: 26.85%
+
+Best Candidate: Applicant ID: 146 | Score: 38.96%
+
+Reason:
+- This candidate’s skillset aligns most closely with the hiring manager's requirements, including Node.js, MongoDB, Redis, and experience creating REST web services using Express. They also possess relevant skills like Git and Agile methodologies, which are explicitly requested.
+- The candidate’s 2+ years of experience directly addresses the desired experience level (2-3 years).
+-  The resume demonstrates practical application of these technologies through detailed work history, particularly highlighting scalable web application development – a key responsibility outlined in the job description."
+gemini,gemini-3.5-flash,5,0,146,146,146|177|662|533|690,38.96|34.52|30.0|27.83|26.85,146,146|177|662|533|690|146,1,1,1,1,39.93,849,,"Top Candidates:
+1. Applicant ID: 146 -> Score: 38.96%
+2. Applicant ID: 177 -> Score: 34.52%
+3. Applicant ID: 662 -> Score: 30.0%
+4. Applicant ID: 533 -> Score: 27.83%
+5. Applicant ID: 690 -> Score: 26.85%
+
+Best Candidate: Applicant ID: 146 | Score: 38.96%
+
+Reason:
+- **Perfect Experience & Core Skill Match**: Fits the target 2-3 years experience bracket (2+ years) and has direct experience with Node.js, MongoDB, Redis, and creating REST APIs using both Hapi and Express frameworks.
+- **Strong ""Good to Have"" Coverage**: Possesses key preferred skills requested by the hiring manager, including TDD approach, socket programming, cloud deployments, and design patterns.
+- **Process & Methodology Alignment**: Demonstrates solid knowledge of Git, Agile methodologies, and DevOps concepts, making them a highly compatible fit for the team's workflow."
