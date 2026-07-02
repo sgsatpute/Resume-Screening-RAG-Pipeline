@@ -72,6 +72,8 @@ Recommended Streamlit Community Cloud settings:
 - Main file path: `streamlit_app.py`
 - Python version: `3.12`
 
+If deployment logs show `Using Python 3.14...`, open the deployed app's **Settings -> General -> Python version**, select `3.12`, save, and reboot the app. Streamlit Community Cloud controls Python version from the UI; do not rely on `runtime.txt` for this.
+
 Add these secrets in Streamlit Cloud Advanced settings:
 
 ```toml
@@ -82,6 +84,8 @@ OLLAMA_NUM_GPU = "0"
 ```
 
 Use Gemini for the deployed app. Ollama is still supported for local runs, but Streamlit Community Cloud does not provide a local Ollama server.
+
+The repository includes `.streamlit/config.toml` with `server.fileWatcherType = "none"` to avoid noisy `transformers`/`torchvision` watcher traces in Streamlit Cloud logs.
 
 ## Latest Evaluation Results
 

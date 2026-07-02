@@ -100,6 +100,8 @@ Recommended Streamlit Cloud settings:
 - Python version: `3.12`
 - Dependencies: root `requirements.txt`
 
+If deployment logs show `Using Python 3.14...`, open the deployed app's **Settings -> General -> Python version**, select `3.12`, save, and reboot the app. Streamlit Community Cloud controls Python version from the UI.
+
 Add these secrets in Streamlit Cloud Advanced settings:
 
 ```toml
@@ -108,6 +110,8 @@ GEMINI_MODEL = "gemini-3.5-flash"
 GOOGLE_API_KEY = "your_google_api_key_here"
 OLLAMA_NUM_GPU = "0"
 ```
+
+The root `.streamlit/config.toml` disables Streamlit's file watcher to prevent noisy optional `transformers`/`torchvision` tracebacks in Cloud logs.
 
 ## Latest Evaluation Results
 
