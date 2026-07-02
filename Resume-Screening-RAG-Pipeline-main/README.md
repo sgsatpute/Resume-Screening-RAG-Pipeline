@@ -26,6 +26,8 @@ On the other hand, RAG Fusion is effective in addressing complex and ambiguous h
 
 ## Demo
 
+Live app: [Resume Screening RAG Pipeline](https://resume-screening-rag-pipeline-uvsdszegsccgis3tgjkdqu.streamlit.app/)
+
 The demo interface can run locally through `demo/interface.py` or be deployed from the repository root with `streamlit_app.py`.
 
 Default synthetic resume data set used in the demo: [GitHub](https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline/blob/main/data/main-data/synthetic-resumes.csv)

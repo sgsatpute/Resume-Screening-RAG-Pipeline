@@ -14,6 +14,8 @@ The repository also contains research notebooks, generated test sets, evaluation
 
 ## Demo Preview
 
+Live app: [Resume Screening RAG Pipeline](https://resume-screening-rag-pipeline-uvsdszegsccgis3tgjkdqu.streamlit.app/)
+
 The Streamlit app opens directly into a chat-style resume screening assistant.
 
 ![Resume Screening GPT starting screen](https://github.com/Hungreeee/Resume-Screening-RAG-Pipeline/assets/46376260/3a7122d5-1c8e-4d98-bb06-cbc28813a2c3)
